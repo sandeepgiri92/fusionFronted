@@ -1,0 +1,3 @@
+import {baseApi} from "@/services/api/baseApi";
+export const expenseApi=baseApi.injectEndpoints({endpoints:b=>({createExpense:b.mutation({query:body=>({url:"/api/add-expense",method:"POST",body}),invalidatesTags:["Expense","Dashboard"]}),getExpenses:b.query({query:({type,page=1})=>`/api/expense/${type}?page=${page}`,providesTags:["Expense"]}),updateExpense:b.mutation({query:({id,...body})=>({url:`/api/expense/${id}`,method:"PATCH",body}),invalidatesTags:["Expense","Dashboard"]}),deleteExpense:b.mutation({query:id=>({url:`/api/expense/${id}`,method:"DELETE"}),invalidatesTags:["Expense","Dashboard"]})})});
+export const {useCreateExpenseMutation,useGetExpensesQuery,useUpdateExpenseMutation,useDeleteExpenseMutation}=expenseApi;

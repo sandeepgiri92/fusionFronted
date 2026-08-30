@@ -1,0 +1,1 @@
+export default function LoadingScreen(){return <div className="loading-screen"><div><div className="loader-orb"><div className="loader-core">F</div></div><p>FUSION · Secure business workspace</p></div></div>}

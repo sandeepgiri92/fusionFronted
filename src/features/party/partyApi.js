@@ -1,0 +1,3 @@
+import {baseApi} from "@/services/api/baseApi";
+export const partyApi=baseApi.injectEndpoints({endpoints:b=>({getParties:b.query({query:({module,search=""})=>`/api/admin/get-parties?module=${encodeURIComponent(module)}&search=${encodeURIComponent(search)}`,providesTags:["Party"]}),createParty:b.mutation({query:body=>({url:"/api/admin/add-new-party",method:"POST",body}),invalidatesTags:["Party"]}),updateParty:b.mutation({query:({id,...body})=>({url:`/api/admin/party/${id}`,method:"PATCH",body}),invalidatesTags:["Party"]}),deleteParty:b.mutation({query:id=>({url:`/api/admin/party/${id}`,method:"DELETE"}),invalidatesTags:["Party"]})})});
+export const {useGetPartiesQuery,useCreatePartyMutation,useUpdatePartyMutation,useDeletePartyMutation}=partyApi;

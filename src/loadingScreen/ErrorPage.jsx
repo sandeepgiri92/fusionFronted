@@ -1,0 +1,1 @@
+import {useNavigate} from "react-router-dom";export default function ErrorPage(){const nav=useNavigate();return <div className="error-page"><div className="error-card"><h1>404</h1><h2>Page not found</h2><p>The page you requested doesn’t exist or may have moved.</p><button className="btn btn-primary" onClick={()=>nav('/')}>Back to dashboard</button></div></div>}

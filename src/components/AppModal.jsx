@@ -1,0 +1,1 @@
+import {X} from "lucide-react";export default function AppModal({title,onClose,children}){return <div className="modal-backdrop" onMouseDown={e=>e.target===e.currentTarget&&onClose()}><div className="modal"><div className="modal-head"><b>{title}</b><button className="icon-btn" onClick={onClose}><X size={19}/></button></div><div className="modal-body">{children}</div></div></div>}
