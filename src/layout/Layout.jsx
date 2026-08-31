@@ -22,6 +22,7 @@ const nav = [
   ["/service", "Services", Wrench],
   ["/petrol-expense", "Petrol Expense", Fuel],
   ["/smc-expense", "SMC Expense", WalletCards],
+  ["/other-expense", "Other Expense", WalletCards],
   ["/payment-status", "Payments", WalletCards],
 ];
 export default function Layout() {

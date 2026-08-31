@@ -2,11 +2,12 @@ import { MdEdit } from "react-icons/md";
 const TableRows = ({ data, type }) => {
   if (type === "Service") {
     return (
-      <div className="w-full border-b border-borderColor py-3 grid grid-cols-[1.4fr_6fr_1.5fr_2fr] text-[12px] font-medium">
+      <div className="w-full border-b border-borderColor py-3 grid grid-cols-[1.4fr_4fr_3fr_1.5fr_2fr] text-[12px] font-medium">
         <p className="px-2 uppercase ">
           {new Date(data.date).toISOString().split("T")[0]}
         </p>
         <p className="px-2  uppercase  ">{data.serviceDetail}</p>
+        <p className="px-2 uppercase ">{data.remarks || "—"}</p>
         <p className="px-2 uppercase flex flex-row gap-1 ">
           <span className="font-bold">&#8377;</span>
           <span
@@ -32,13 +33,14 @@ const TableRows = ({ data, type }) => {
     );
   }
   return (
-    <div className="w-full border-b border-borderColor py-3 grid grid-cols-[1.4fr_2.1fr_2.4fr_2.1fr_1.5fr_2fr] text-[12px] font-medium">
+    <div className="w-full border-b border-borderColor py-3 grid grid-cols-[1.4fr_2.1fr_2.4fr_2.1fr_2.5fr_1.5fr_2fr] text-[12px] font-medium">
       <p className="px-2 uppercase ">
         {new Date(data.date).toISOString().split("T")[0]}
       </p>
       <p className="px-2  uppercase ">{data.productName}</p>
       <p className="px-2 uppercase ">{data.invoiceNo}</p>
       <p className="px-2 uppercase ">{data.serialNo}</p>
+      <p className="px-2 uppercase ">{data.remarks || "—"}</p>
       <p className="px-2 uppercase flex flex-row gap-1 ">
         <span className="font-bold">&#8377;</span>
         <span

@@ -23,6 +23,7 @@ const SaleEntryForm = ({
     amount: 0,
     paymentStatus: "pending",
     serviceDetail: "",
+    remarks: "",
   });
   // ----------------------
 
@@ -36,7 +37,7 @@ const SaleEntryForm = ({
   const handleOnsubmiteSalefrom = async (e) => {
     e.preventDefault();
     try {
-      const response = await createEntry({ type, partyId, saleFormdata });
+      const response = await createEntry({ type, partyId, entryData: saleFormdata });
       handleToggleCloseNewSaleEntryForm();
     } catch (err) {
       console.log(err);
@@ -113,6 +114,32 @@ const SaleEntryForm = ({
                       }}
                     />
                   </div>
+                </div>
+
+                {/* ---------------- Remarks ---------------- */}
+                <div className="grid grid-rows-2 gap-1">
+                  <div className="flex flex-row items-center font-medium gap-1">
+                    <label htmlFor="">Remarks</label>
+                  </div>
+                  <textarea
+                    className="border w-full px-2 py-1 rounded border-borderColor shadow outline-none"
+                    placeholder="Optional remarks"
+                    value={saleFormdata.remarks}
+                    onChange={(e) => setSaleFormData({...saleFormdata, remarks:e.target.value})}
+                  />
+                </div>
+
+                {/* ---------------- Remarks ---------------- */}
+                <div className="grid grid-rows-2 gap-1">
+                  <div className="flex flex-row items-center font-medium gap-1">
+                    <label htmlFor="">Remarks</label>
+                  </div>
+                  <textarea
+                    className="border w-full px-2 py-1 rounded border-borderColor shadow outline-none"
+                    placeholder="Optional remarks"
+                    value={saleFormdata.remarks}
+                    onChange={(e) => setSaleFormData({...saleFormdata, remarks:e.target.value})}
+                  />
                 </div>
 
                 {/* --------------- */}
