@@ -1,10 +1,13 @@
-import AdminLogin from "./pages/AdminLogin"
-import AppRoutes from "./routes/AppRoutes"
+import { SpeedInsights } from "@vercel/speed-insights/react";
+import AppRoutes from "./routes/AppRoutes";
 
 const App = () => {
   return (
-    <AppRoutes/>
-  )
-}
+    <>
+      <AppRoutes />
+      <SpeedInsights />
+    </>
+  );
+};
 
-export default App
+export default App;
