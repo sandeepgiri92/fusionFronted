@@ -8,6 +8,7 @@ const ExpenseEntryForm = ({handleFormCloseBtn , expenseType}) => {
     date:"",
     amount:"",
     remarks:"",
+    status:["SMC","Other"].includes(String(expenseType)) ? "pending" : undefined,
   })
 
   const [createExpense,{isLoading}] = useCreateExpenseMutation()
@@ -58,6 +59,23 @@ const ExpenseEntryForm = ({handleFormCloseBtn , expenseType}) => {
                         <input type="text"  className=" text-sm outline-none" onChange={(e)=>setFormData({...formData, amount:e.target.value})}/>
                     </div>
                 </div>
+                {/* ------------------ */}
+                {["SMC","Other"].includes(String(expenseType)) && (
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="" className="font-medium">Payment Status</label>
+                    <div className="border px-2 py-1 rounded border-borderColor shadow">
+                      <select
+                        value={formData.status}
+                        onChange={(e)=>setFormData({...formData, status:e.target.value})}
+                        className="text-sm outline-none w-full bg-transparent"
+                        required
+                      >
+                        <option value="paid">Paid</option>
+                        <option value="pending">Pending</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
                 {/* ------------------ */}
                 <div className="flex flex-col gap-1.5">
                     <label htmlFor="" className="font-medium">Remarks</label>
