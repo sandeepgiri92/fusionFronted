@@ -670,7 +670,7 @@ export async function deliverBill({ type, party, entry }) {
 
 export async function downloadBillDocx({ type, entry }) {
   const res = await fetch(
-    `${API_URL}api/entry/${type}/${entry._id}/bill-docx`,
+    `${API_URL}/api/entry/${type}/${entry._id}/bill-docx`,
     { credentials: "include" },
   );
   if (!res.ok) throw new Error("Unable to generate Word bill");
@@ -694,9 +694,12 @@ export async function downloadBillDocx({ type, entry }) {
 // -----------------------------
 
 export async function downloadBillPdf({ type, entry }) {
-  const res = await fetch(`${API_URL}api/entry/${type}/${entry._id}/bill-pdf`, {
-    credentials: "include",
-  });
+  const res = await fetch(
+    `${API_URL}/api/entry/${type}/${entry._id}/bill-pdf`,
+    {
+      credentials: "include",
+    },
+  );
   if (!res.ok) throw new Error("Unable to generate PDF bill");
   const blob = await res.blob();
   const cd = res.headers.get("Content-Disposition") || "";
