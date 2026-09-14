@@ -9,7 +9,6 @@ import {
   LogOut,
   Menu,
   ShoppingCart,
-  Boxes,
   Tag,
   WalletCards,
   Wrench,
