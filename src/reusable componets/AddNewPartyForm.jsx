@@ -6,6 +6,7 @@ const AddNewPartyForm = ({ handleToggleCloseNewPartyEntryFormBtn, module }) => {
   const [newPartyFormData, setNewPartyFormData] = useState({
     name: "",
     contactNo: "",
+    address: "",
     module: module.split("/").filter(Boolean).pop(),
   });
 
@@ -62,6 +63,23 @@ const AddNewPartyForm = ({ handleToggleCloseNewPartyEntryFormBtn, module }) => {
                   setNewPartyFormData({
                     ...newPartyFormData,
                     contactNo: e.target.value,
+                  });
+                }}
+              />
+            </div>
+            <div className="flex flex-col">
+              <label htmlFor="party-address" className="font-semibold pb-3">
+                Party Address
+              </label>
+              <textarea
+                id="party-address"
+                placeholder="Enter Party Address"
+                className="border border-borderColor shadow outline-none p-2 rounded"
+                rows={3}
+                onChange={(e) => {
+                  setNewPartyFormData({
+                    ...newPartyFormData,
+                    address: e.target.value,
                   });
                 }}
               />

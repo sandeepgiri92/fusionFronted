@@ -1,39 +1,796 @@
-import {Edit3,Plus,RefreshCw,Search,Trash2,Users,CreditCard,FileText,Printer,Download} from "lucide-react";
-import {useMemo,useState} from "react";
-import AppModal from "@/components/AppModal";import Toast from "@/components/Toast";
-import {useCreatePartyMutation,useDeletePartyMutation,useGetPartiesQuery,useUpdatePartyMutation} from "@/features/party/partyApi";
-import {useCreateEntryMutation,useDeleteEntryMutation,useGetEntryQuery,useUpdateEntryMutation,useAddTransactionPaymentMutation,useDeleteTransactionPaymentMutation} from "@/features/entryApi/entryApi";
-import {deliverBill,printBill} from "@/lib/billPdf";
-const money=n=>`₹ ${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-const today=()=>new Date().toISOString().slice(0,10);
-export default function EntryPage({type}){
- const module=type.toLowerCase(),[partyId,setPartyId]=useState(""),[searchParty,setSearchParty]=useState(""),[search,setSearch]=useState(""),[page,setPage]=useState(1),[modal,setModal]=useState(null),[toast,setToast]=useState(null),[doc,setDoc]=useState(null);
- const emptyForm=()=>({date:today(),productName:"",invoiceNo:"",serialNo:"",serviceDetail:"",amount:"",remarks:"",initialPayment:"",initialPaymentDate:today(),initialPaymentRemarks:""});
- const [form,setForm]=useState(emptyForm);
- const {data:partiesData,isLoading:partiesLoading}=useGetPartiesQuery({module,search:searchParty});const parties=partiesData?.data||[];
- const {data,isLoading,isError,refetch}=useGetEntryQuery({type,partyId,page,searchValue:search},{skip:!partyId});const rows=data?.data||[],pagination=data?.pagination;
- const selectedParty=useMemo(()=>parties.find(p=>p._id===partyId),[parties,partyId]);
- const [createParty]=useCreatePartyMutation(),[updateParty]=useUpdatePartyMutation(),[deleteParty]=useDeletePartyMutation(),[createEntry,{isLoading:creating}]=useCreateEntryMutation(),[updateEntry,{isLoading:updating}]=useUpdateEntryMutation(),[deleteEntry]=useDeleteEntryMutation(),[addPayment,{isLoading:addingPayment}]=useAddTransactionPaymentMutation(),[deletePayment]=useDeleteTransactionPaymentMutation();
- const submit=async e=>{e.preventDefault();try{const clean={...form,amount:Number(form.amount||0),initialPayment:Number(form.initialPayment||0)};if(clean.initialPayment>clean.amount)return setToast("Initial payment cannot be greater than total amount");if(modal?.entry){await updateEntry({type,id:modal.entry._id,partyId,entryData:clean}).unwrap();setToast(`${type} updated successfully`);}else{await createEntry({type,partyId,entryData:clean}).unwrap();setToast(`${type} added successfully`);}setModal(null);setForm(emptyForm());refetch();}catch(err){setToast(err?.data?.message||"Operation failed");}};
- const editEntry=e=>{setForm({date:e.date?new Date(e.date).toISOString().slice(0,10):today(),productName:e.productName||"",invoiceNo:e.invoiceNo||"",serialNo:e.serialNo||"",serviceDetail:e.serviceDetail||"",amount:e.amount??"",remarks:e.remarks||"",initialPayment:"",initialPaymentDate:today(),initialPaymentRemarks:""});setModal({entry:e});};
- const remove=async id=>{if(!confirm("Delete this entry permanently?"))return;try{await deleteEntry({type,id}).unwrap();setToast("Entry deleted");refetch();}catch(err){setToast(err?.data?.message||"Unable to delete");}};
- const addParty=async e=>{e.preventDefault();try{await createParty({name:e.target.name.value,contactNo:e.target.contact.value,module}).unwrap();setToast("Party saved");setModal(null);}catch(err){setToast(err?.data?.message||"Unable to save party");}};
- const editParty=async()=>{if(!selectedParty)return;const name=prompt("Party name",selectedParty.name);if(name===null)return;const contact=prompt("Mobile number",selectedParty.contactNo);if(contact===null)return;try{await updateParty({id:selectedParty._id,name,contactNo:contact}).unwrap();setToast("Party updated");}catch(err){setToast(err?.data?.message||"Unable to update");}};
- const removeParty=async()=>{if(!selectedParty||!confirm("Remove this party?"))return;try{await deleteParty(selectedParty._id).unwrap();setPartyId("");setToast("Party removed");}catch(err){setToast(err?.data?.message||"This party cannot be removed");}};
- const openPayment=e=>setModal({payment:e,paymentAmount:"",paymentDate:today(),paymentRemarks:""});
- const savePayment=async ev=>{ev.preventDefault();const m=modal.payment,amount=Number(modal.paymentAmount||0);try{await addPayment({id:m.transactionId,amount,paymentDate:modal.paymentDate,remarks:modal.paymentRemarks}).unwrap();setToast("Payment added");setModal(null);refetch();}catch(err){setToast(err?.data?.message||"Unable to add payment");}};
- const removePayment=async (entry,paymentId)=>{if(!confirm("Remove this payment?"))return;try{await deletePayment({id:entry.transactionId,paymentId}).unwrap();setToast("Payment removed");refetch();}catch(err){setToast(err?.data?.message||"Unable to remove payment");}};
- const generate=async row=>{try{const result=await deliverBill({type,party:selectedParty,entry:row});setDoc(result);if(result.shared){setToast("PDF shared — select WhatsApp from the share sheet");}else setToast("PDF downloaded");}catch(err){if(err?.name!=="AbortError")setToast("Unable to generate/share PDF");}};
- return <>
- <div className="page-title"><div><div className="eyebrow">Workspace / {type}</div><h1>{type}s</h1><p>Manage {type.toLowerCase()} records, payments and documents.</p></div><button className="btn btn-primary" onClick={()=>{if(!partyId)return setToast("Select a party first");setForm(emptyForm());setModal({entry:null});}}><Plus size={16}/> Add {type}</button></div>
- <div className="panel" style={{marginBottom:16}}><div className="toolbar" style={{padding:0,border:0}}><div className="search"><Search size={15}/><input placeholder="Search parties…" value={searchParty} onChange={e=>{setSearchParty(e.target.value);setPage(1)}}/></div><select className="select" style={{maxWidth:270}} value={partyId} onChange={e=>{setPartyId(e.target.value);setPage(1);setSearch("")}}><option value="">{partiesLoading?"Loading parties…":"Select party"}</option>{parties.map(p=><option value={p._id} key={p._id}>{p.name} · {p.contactNo}</option>)}</select><button className="btn btn-secondary" onClick={()=>setModal({party:true})}><Users size={15}/> New party</button>{selectedParty&&<><button className="small-btn" title="Edit party" onClick={editParty}><Edit3 size={15}/></button><button className="small-btn" title="Remove party" onClick={removeParty}><Trash2 size={15}/></button></>}</div></div>
- {partyId?<div className="panel table-panel"><div className="toolbar"><div className="search"><Search size={15}/><input placeholder={`Search ${type.toLowerCase()} records…`} value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}/></div><button className="small-btn" onClick={refetch} title="Refresh"><RefreshCw size={15}/></button></div>{isLoading?<div className="empty">Loading records…</div>:isError?<div className="empty"><b>Could not load records</b><button className="btn btn-secondary" onClick={refetch}>Try again</button></div>:<><div className="table-wrap"><table className="table"><thead><tr>{type==="Service"?<><th>Date</th><th>Service</th></>:<><th>Date</th><th>Product</th><th>Invoice</th><th>Serial</th></>}<th>Remarks</th><th>Total</th><th>Paid</th><th>Due</th><th>Payment</th><th>Actions</th></tr></thead><tbody>{rows.length?rows.map(row=><tr key={row._id}><td>{new Date(row.date).toLocaleDateString("en-IN")}</td>{type==="Service"?<td>{row.serviceDetail||"—"}</td>:<><td>{row.productName||"—"}</td><td>{row.invoiceNo||"—"}</td><td>{row.serialNo||"—"}</td></>}<td>{row.remarks||"—"}</td><td><b>{money(row.amount)}</b></td><td>{money(row.totalPaid)}</td><td><b>{money(row.remainingAmount)}</b></td><td><span className={`status ${row.paymentStatus}`}>{row.paymentStatus==="paid"?"Paid":row.paymentStatus==="partial"?"Partial":"Unpaid"}</span></td><td><div className="actions"><button className="small-btn" title="Add payment" onClick={()=>openPayment(row)}><CreditCard size={14}/></button>{type==="Sale"&&<button className="small-btn" title="Generate invoice" onClick={()=>generate(row)}><FileText size={14}/></button>}{type==="Service"&&<button className="small-btn" title="Generate service receipt" onClick={()=>generate(row)}><FileText size={14}/></button>}<button className="small-btn" title="Edit" onClick={()=>editEntry(row)}><Edit3 size={14}/></button><button className="small-btn" title="Delete" onClick={()=>remove(row._id)}><Trash2 size={14}/></button></div></td></tr>):<tr><td colSpan={type==="Service"?10:12}><div className="empty">No records found.</div></td></tr>}</tbody></table></div><div className="pagination"><span>Page {pagination?.currentPage||1} of {pagination?.totalPages||1} · {pagination?.totalData||0} records</span><button className="btn btn-secondary" disabled={!pagination?.hasPreviousPage} onClick={()=>setPage(p=>p-1)}>Previous</button><button className="btn btn-secondary" disabled={!pagination?.hasNextPage} onClick={()=>setPage(p=>p+1)}>Next</button></div></>}</div>:<div className="panel empty"><b>Select a party to view {type.toLowerCase()} records</b><span>Or create a new party to get started.</span></div>}
- {modal?.party&&<AppModal title="Create party" onClose={()=>setModal(null)}><form onSubmit={addParty}><div className="form-grid"><div className="field"><label>Name</label><input className="input" name="name" required/></div><div className="field"><label>Mobile</label><input className="input" name="contact" required/></div></div><div className="form-actions"><button type="button" className="btn btn-secondary" onClick={()=>setModal(null)}>Cancel</button><button className="btn btn-primary">Save party</button></div></form></AppModal>}
- {modal?.payment&&<AppModal title="Add payment" onClose={()=>setModal(null)}><form onSubmit={savePayment}><div className="payment-summary"><div><span>Total</span><b>{money(modal.payment.amount)}</b></div><div><span>Already paid</span><b>{money(modal.payment.totalPaid)}</b></div><div><span>Remaining</span><b>{money(modal.payment.remainingAmount)}</b></div></div><div className="form-grid"><div className="field"><label>Payment amount</label><input autoFocus type="number" min="0.01" max={modal.payment.remainingAmount} step="0.01" className="input" value={modal.paymentAmount} onChange={e=>setModal({...modal,paymentAmount:e.target.value})} required/></div><div className="field"><label>Payment date</label><input type="date" className="input" value={modal.paymentDate} onChange={e=>setModal({...modal,paymentDate:e.target.value})} required/></div><div className="field full"><label>Remarks</label><input className="input" value={modal.paymentRemarks} onChange={e=>setModal({...modal,paymentRemarks:e.target.value})} placeholder="Cash, UPI, advance…"/></div></div>{modal.payment.payments?.length>0&&<div className="payment-history"><h4>Payment history</h4>{modal.payment.payments.map(p=><div key={p._id}><span>{new Date(p.paymentDate).toLocaleDateString("en-IN")}</span><b>{money(p.amount)}</b><small>{p.remarks||""}</small><button type="button" className="small-btn" onClick={()=>removePayment(modal.payment,p._id)}><Trash2 size={13}/></button></div>)}</div>}<div className="form-actions"><button type="button" className="btn btn-secondary" onClick={()=>setModal(null)}>Close</button><button className="btn btn-primary" disabled={addingPayment}>Add payment</button></div></form></AppModal>}
- {modal?.entry!==undefined&&modal?.entry!==null&&<AppModal title={`Edit ${type}`} onClose={()=>setModal(null)}><EntryForm type={type} form={form} setForm={setForm} submit={submit} busy={updating} onCancel={()=>setModal(null)}/></AppModal>}
- {modal?.entry===null&&<AppModal title={`Add ${type}`} onClose={()=>setModal(null)}><EntryForm type={type} form={form} setForm={setForm} submit={submit} busy={creating} onCancel={()=>setModal(null)}/></AppModal>}
- {doc&&!doc.shared&&<AppModal title="Bill ready" onClose={()=>setDoc(null)}><div className="document-actions"><p>PDF has been generated successfully.</p><div className="form-actions"><button className="btn btn-secondary" onClick={()=>printBill(doc.blob)}><Printer size={15}/> Print</button><a className="btn btn-primary" href={doc.url} download={doc.name}><Download size={15}/> Download PDF</a></div></div></AppModal>}
- <Toast message={toast} type={toast?.toLowerCase().includes("unable")||toast?.toLowerCase().includes("cannot")?"error":"success"} onClose={()=>setToast(null)}/>
- </>;
+import AppModal from "@/components/AppModal";
+import Toast from "@/components/Toast";
+import {
+  useAddTransactionPaymentMutation,
+  useCreateEntryMutation,
+  useDeleteEntryMutation,
+  useDeleteTransactionPaymentMutation,
+  useGetEntryQuery,
+  useUpdateEntryMutation,
+} from "@/features/entryApi/entryApi";
+import {
+  useCreatePartyMutation,
+  useDeletePartyMutation,
+  useGetPartiesQuery,
+  useUpdatePartyMutation,
+} from "@/features/party/partyApi";
+import { downloadBillPdf } from "@/lib/billPdf";
+import {
+  CreditCard,
+  Edit3,
+  FileDown,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
+import { useMemo, useState } from "react";
+const money = (n) =>
+  `₹ ${Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const today = () => new Date().toISOString().slice(0, 10);
+export default function EntryPage({ type }) {
+  const module = type.toLowerCase(),
+    [partyId, setPartyId] = useState(""),
+    [searchParty, setSearchParty] = useState(""),
+    [search, setSearch] = useState(""),
+    [page, setPage] = useState(1),
+    [modal, setModal] = useState(null),
+    [toast, setToast] = useState(null);
+  const emptyForm = () => ({
+    date: today(),
+    productName: "",
+    invoiceNo: "",
+    serialNo: "",
+    qty: "1",
+    rate: "",
+    serviceDetail: "",
+    amount: "",
+    remarks: "",
+    initialPayment: "",
+    initialPaymentDate: today(),
+    initialPaymentRemarks: "",
+  });
+  const [form, setForm] = useState(emptyForm);
+  const { data: partiesData, isLoading: partiesLoading } = useGetPartiesQuery({
+    module,
+    search: searchParty,
+  });
+  const parties = partiesData?.data || [];
+  const { data, isLoading, isError, refetch } = useGetEntryQuery(
+    { type, partyId, page, searchValue: search },
+    { skip: !partyId },
+  );
+  const rows = data?.data || [],
+    pagination = data?.pagination;
+  const selectedParty = useMemo(
+    () => parties.find((p) => p._id === partyId),
+    [parties, partyId],
+  );
+  const [createParty] = useCreatePartyMutation(),
+    [updateParty] = useUpdatePartyMutation(),
+    [deleteParty] = useDeletePartyMutation(),
+    [createEntry, { isLoading: creating }] = useCreateEntryMutation(),
+    [updateEntry, { isLoading: updating }] = useUpdateEntryMutation(),
+    [deleteEntry] = useDeleteEntryMutation(),
+    [addPayment, { isLoading: addingPayment }] =
+      useAddTransactionPaymentMutation(),
+    [deletePayment] = useDeleteTransactionPaymentMutation();
+  const submit = async (e) => {
+    e.preventDefault();
+    try {
+      const clean = {
+        ...form,
+        amount: Number(form.amount || 0),
+        initialPayment: Number(form.initialPayment || 0),
+      };
+      if (clean.initialPayment > clean.amount)
+        return setToast("Initial payment cannot be greater than total amount");
+      if (modal?.entry) {
+        await updateEntry({
+          type,
+          id: modal.entry._id,
+          partyId,
+          entryData: clean,
+        }).unwrap();
+        setToast(`${type} updated successfully`);
+      } else {
+        await createEntry({ type, partyId, entryData: clean }).unwrap();
+        setToast(`${type} added successfully`);
+      }
+      setModal(null);
+      setForm(emptyForm());
+      refetch();
+    } catch (err) {
+      setToast(err?.data?.message || "Operation failed");
+    }
+  };
+  const editEntry = (e) => {
+    setForm({
+      date: e.date ? new Date(e.date).toISOString().slice(0, 10) : today(),
+      productName: e.productName || "",
+      invoiceNo: e.invoiceNo || "",
+      serialNo: e.serialNo || "",
+      qty: e.qty || 1,
+      rate: e.rate ?? "",
+      serviceDetail: e.serviceDetail || "",
+      amount: e.amount ?? "",
+      remarks: e.remarks || "",
+      initialPayment: "",
+      initialPaymentDate: today(),
+      initialPaymentRemarks: "",
+    });
+    setModal({ entry: e });
+  };
+  const remove = async (id) => {
+    if (!confirm("Delete this entry permanently?")) return;
+    try {
+      await deleteEntry({ type, id }).unwrap();
+      setToast("Entry deleted");
+      refetch();
+    } catch (err) {
+      setToast(err?.data?.message || "Unable to delete");
+    }
+  };
+  const addParty = async (e) => {
+    e.preventDefault();
+    try {
+      await createParty({
+        name: e.target.name.value,
+        contactNo: e.target.contact.value,
+        address: e.target.address.value,
+        module,
+      }).unwrap();
+      setToast("Party saved");
+      setModal(null);
+    } catch (err) {
+      setToast(err?.data?.message || "Unable to save party");
+    }
+  };
+  const editParty = async () => {
+    if (!selectedParty) return;
+    const name = prompt("Party name", selectedParty.name);
+    if (name === null) return;
+    const contact = prompt("Mobile number", selectedParty.contactNo);
+    if (contact === null) return;
+    const address = prompt(
+      "Address (for bill — leave blank if none)",
+      selectedParty.address || "",
+    );
+    if (address === null) return;
+    try {
+      await updateParty({
+        id: selectedParty._id,
+        name,
+        contactNo: contact,
+        address,
+      }).unwrap();
+      setToast("Party updated");
+    } catch (err) {
+      setToast(err?.data?.message || "Unable to update");
+    }
+  };
+  const removeParty = async () => {
+    if (!selectedParty || !confirm("Remove this party?")) return;
+    try {
+      await deleteParty(selectedParty._id).unwrap();
+      setPartyId("");
+      setToast("Party removed");
+    } catch (err) {
+      setToast(err?.data?.message || "This party cannot be removed");
+    }
+  };
+  const openPayment = (e) =>
+    setModal({
+      payment: e,
+      paymentAmount: "",
+      paymentDate: today(),
+      paymentRemarks: "",
+    });
+  const savePayment = async (ev) => {
+    ev.preventDefault();
+    const m = modal.payment,
+      amount = Number(modal.paymentAmount || 0);
+    try {
+      await addPayment({
+        id: m.transactionId,
+        amount,
+        paymentDate: modal.paymentDate,
+        remarks: modal.paymentRemarks,
+      }).unwrap();
+      setToast("Payment added");
+      setModal(null);
+      refetch();
+    } catch (err) {
+      setToast(err?.data?.message || "Unable to add payment");
+    }
+  };
+  const removePayment = async (entry, paymentId) => {
+    if (!confirm("Remove this payment?")) return;
+    try {
+      await deletePayment({ id: entry.transactionId, paymentId }).unwrap();
+      setToast("Payment removed");
+      refetch();
+    } catch (err) {
+      setToast(err?.data?.message || "Unable to remove payment");
+    }
+  };
+  const generateWord = async (row) => {
+    try {
+      // await downloadBillDocx({ type, entry: row });
+      await downloadBillPdf({ type, entry: row });
+      setToast("Word and PDF bills downloaded");
+    } catch (err) {
+      setToast("Unable to download bill");
+    }
+  };
+  return (
+    <>
+      <div className="page-title">
+        <div>
+          <div className="eyebrow">Workspace / {type}</div>
+          <h1>{type}s</h1>
+          <p>Manage {type.toLowerCase()} records, payments and documents.</p>
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            if (!partyId) return setToast("Select a party first");
+            setForm(emptyForm());
+            setModal({ entry: null });
+          }}
+        >
+          <Plus size={16} /> Add {type}
+        </button>
+      </div>
+      <div className="panel" style={{ marginBottom: 16 }}>
+        <div className="toolbar" style={{ padding: 0, border: 0 }}>
+          <div className="search">
+            <Search size={15} />
+            <input
+              placeholder="Search parties…"
+              value={searchParty}
+              onChange={(e) => {
+                setSearchParty(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+          <select
+            className="select"
+            style={{ maxWidth: 270 }}
+            value={partyId}
+            onChange={(e) => {
+              setPartyId(e.target.value);
+              setPage(1);
+              setSearch("");
+            }}
+          >
+            <option value="">
+              {partiesLoading ? "Loading parties…" : "Select party"}
+            </option>
+            {parties.map((p) => (
+              <option value={p._id} key={p._id}>
+                {p.name} · {p.contactNo}
+              </option>
+            ))}
+          </select>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setModal({ party: true })}
+          >
+            <Users size={15} /> New party
+          </button>
+          {selectedParty && (
+            <>
+              <button
+                className="small-btn"
+                title="Edit party"
+                onClick={editParty}
+              >
+                <Edit3 size={15} />
+              </button>
+              <button
+                className="small-btn"
+                title="Remove party"
+                onClick={removeParty}
+              >
+                <Trash2 size={15} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+      {partyId ? (
+        <div className="panel table-panel">
+          <div className="toolbar">
+            <div className="search">
+              <Search size={15} />
+              <input
+                placeholder={`Search ${type.toLowerCase()} records…`}
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+            <button className="small-btn" onClick={refetch} title="Refresh">
+              <RefreshCw size={15} />
+            </button>
+          </div>
+          {isLoading ? (
+            <div className="empty">Loading records…</div>
+          ) : isError ? (
+            <div className="empty">
+              <b>Could not load records</b>
+              <button className="btn btn-secondary" onClick={refetch}>
+                Try again
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      {type === "Service" ? (
+                        <>
+                          <th>Date</th>
+                          <th>Service</th>
+                          <th>Invoice</th>
+                        </>
+                      ) : (
+                        <>
+                          <th>Date</th>
+                          <th>Product</th>
+                          <th>Invoice</th>
+                          <th>Serial</th>
+                        </>
+                      )}
+                      <th>Remarks</th>
+                      <th>Total</th>
+                      <th>Paid</th>
+                      <th>Due</th>
+                      <th>Payment</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.length ? (
+                      rows.map((row) => (
+                        <tr key={row._id}>
+                          <td>
+                            {new Date(row.date).toLocaleDateString("en-IN")}
+                          </td>
+                          {type === "Service" ? (
+                            <>
+                              <td>{row.serviceDetail || "—"}</td>
+                              <td>{row.invoiceNo || "—"}</td>
+                            </>
+                          ) : (
+                            <>
+                              <td>{row.productName || "—"}</td>
+                              <td>{row.invoiceNo || "—"}</td>
+                              <td>{row.serialNo || "—"}</td>
+                            </>
+                          )}
+                          <td>{row.remarks || "—"}</td>
+                          <td>
+                            <b>{money(row.amount)}</b>
+                          </td>
+                          <td>{money(row.totalPaid)}</td>
+                          <td>
+                            <b>{money(row.remainingAmount)}</b>
+                          </td>
+                          <td>
+                            <span className={`status ${row.paymentStatus}`}>
+                              {row.paymentStatus === "paid"
+                                ? "Paid"
+                                : row.paymentStatus === "partial"
+                                  ? "Partial"
+                                  : "Unpaid"}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="actions">
+                              <button
+                                className="small-btn"
+                                title="Add payment"
+                                onClick={() => openPayment(row)}
+                              >
+                                <CreditCard size={14} />
+                              </button>
+                              <button
+                                className="small-btn"
+                                title="Generate Bill (Word + PDF)"
+                                onClick={() => generateWord(row)}
+                              >
+                                <FileDown size={14} />
+                              </button>
+                              <button
+                                className="small-btn"
+                                title="Edit"
+                                onClick={() => editEntry(row)}
+                              >
+                                <Edit3 size={14} />
+                              </button>
+                              <button
+                                className="small-btn"
+                                title="Delete"
+                                onClick={() => remove(row._id)}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={type === "Service" ? 11 : 12}>
+                          <div className="empty">No records found.</div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="pagination">
+                <span>
+                  Page {pagination?.currentPage || 1} of{" "}
+                  {pagination?.totalPages || 1} · {pagination?.totalData || 0}{" "}
+                  records
+                </span>
+                <button
+                  className="btn btn-secondary"
+                  disabled={!pagination?.hasPreviousPage}
+                  onClick={() => setPage((p) => p - 1)}
+                >
+                  Previous
+                </button>
+                <button
+                  className="btn btn-secondary"
+                  disabled={!pagination?.hasNextPage}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="panel empty">
+          <b>Select a party to view {type.toLowerCase()} records</b>
+          <span>Or create a new party to get started.</span>
+        </div>
+      )}
+      {modal?.party && (
+        <AppModal title="Create party" onClose={() => setModal(null)}>
+          <form onSubmit={addParty}>
+            <div className="form-grid">
+              <div className="field">
+                <label>Name</label>
+                <input className="input" name="name" required />
+              </div>
+              <div className="field">
+                <label>Mobile</label>
+                <input className="input" name="contact" required />
+              </div>
+              <div className="field full">
+                <label>Address (optional — bill par print hoga)</label>
+                <input className="input" name="address" />
+              </div>
+            </div>
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setModal(null)}
+              >
+                Cancel
+              </button>
+              <button className="btn btn-primary">Save party</button>
+            </div>
+          </form>
+        </AppModal>
+      )}
+      {modal?.payment && (
+        <AppModal title="Add payment" onClose={() => setModal(null)}>
+          <form onSubmit={savePayment}>
+            <div className="payment-summary">
+              <div>
+                <span>Total</span>
+                <b>{money(modal.payment.amount)}</b>
+              </div>
+              <div>
+                <span>Already paid</span>
+                <b>{money(modal.payment.totalPaid)}</b>
+              </div>
+              <div>
+                <span>Remaining</span>
+                <b>{money(modal.payment.remainingAmount)}</b>
+              </div>
+            </div>
+            <div className="form-grid">
+              <div className="field">
+                <label>Payment amount</label>
+                <input
+                  autoFocus
+                  type="number"
+                  min="0.01"
+                  max={modal.payment.remainingAmount}
+                  step="0.01"
+                  className="input"
+                  value={modal.paymentAmount}
+                  onChange={(e) =>
+                    setModal({ ...modal, paymentAmount: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="field">
+                <label>Payment date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={modal.paymentDate}
+                  onChange={(e) =>
+                    setModal({ ...modal, paymentDate: e.target.value })
+                  }
+                  required
+                />
+              </div>
+              <div className="field full">
+                <label>Remarks</label>
+                <input
+                  className="input"
+                  value={modal.paymentRemarks}
+                  onChange={(e) =>
+                    setModal({ ...modal, paymentRemarks: e.target.value })
+                  }
+                  placeholder="Cash, UPI, advance…"
+                />
+              </div>
+            </div>
+            {modal.payment.payments?.length > 0 && (
+              <div className="payment-history">
+                <h4>Payment history</h4>
+                {modal.payment.payments.map((p) => (
+                  <div key={p._id}>
+                    <span>
+                      {new Date(p.paymentDate).toLocaleDateString("en-IN")}
+                    </span>
+                    <b>{money(p.amount)}</b>
+                    <small>{p.remarks || ""}</small>
+                    <button
+                      type="button"
+                      className="small-btn"
+                      onClick={() => removePayment(modal.payment, p._id)}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="form-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setModal(null)}
+              >
+                Close
+              </button>
+              <button className="btn btn-primary" disabled={addingPayment}>
+                Add payment
+              </button>
+            </div>
+          </form>
+        </AppModal>
+      )}
+      {modal?.entry !== undefined && modal?.entry !== null && (
+        <AppModal title={`Edit ${type}`} onClose={() => setModal(null)}>
+          <EntryForm
+            type={type}
+            form={form}
+            setForm={setForm}
+            submit={submit}
+            busy={updating}
+            onCancel={() => setModal(null)}
+          />
+        </AppModal>
+      )}
+      {modal?.entry === null && (
+        <AppModal title={`Add ${type}`} onClose={() => setModal(null)}>
+          <EntryForm
+            type={type}
+            form={form}
+            setForm={setForm}
+            submit={submit}
+            busy={creating}
+            onCancel={() => setModal(null)}
+          />
+        </AppModal>
+      )}
+      <Toast
+        message={toast}
+        type={
+          toast?.toLowerCase().includes("unable") ||
+          toast?.toLowerCase().includes("cannot")
+            ? "error"
+            : "success"
+        }
+        onClose={() => setToast(null)}
+      />
+    </>
+  );
 }
-function EntryForm({type,form,setForm,submit,busy,onCancel}){const service=type==="Service",set=(k,v)=>setForm(f=>({...f,[k]:v}));return <form onSubmit={submit}><div className="form-grid">{service?<div className="field full"><label>Service detail</label><textarea className="textarea" rows="4" value={form.serviceDetail} onChange={e=>set("serviceDetail",e.target.value)} required/></div>:<><div className="field"><label>Product name</label><input className="input" value={form.productName} onChange={e=>set("productName",e.target.value)} required/></div><div className="field"><label>Invoice number</label><input className="input" value={form.invoiceNo} onChange={e=>set("invoiceNo",e.target.value)} required/></div><div className="field"><label>Serial number</label><input className="input" value={form.serialNo} onChange={e=>set("serialNo",e.target.value)} required/></div></>}<div className="field"><label>Date</label><input type="date" className="input" value={form.date} onChange={e=>set("date",e.target.value)} required/></div><div className="field"><label>Total amount</label><input type="number" min="0" step="0.01" className="input" value={form.amount} onChange={e=>set("amount",e.target.value)} required/></div><div className="field"><label>Initial payment</label><input type="number" min="0" step="0.01" max={Number(form.amount)||undefined} className="input" value={form.initialPayment} onChange={e=>set("initialPayment",e.target.value)} placeholder="0 for unpaid"/></div><div className="field"><label>Payment date</label><input type="date" className="input" value={form.initialPaymentDate} onChange={e=>set("initialPaymentDate",e.target.value)}/></div><div className="field"><label>Payment remarks</label><input className="input" value={form.initialPaymentRemarks} onChange={e=>set("initialPaymentRemarks",e.target.value)} placeholder="Optional"/></div><div className="field full"><label>Remarks</label><textarea className="textarea" rows="3" value={form.remarks} onChange={e=>set("remarks",e.target.value)}/></div></div><div className="form-actions"><button type="button" className="btn btn-secondary" onClick={onCancel}>Cancel</button><button className="btn btn-primary" disabled={busy}>{busy?"Saving…":`Save ${type}`}</button></div></form>}
+function EntryForm({ type, form, setForm, submit, busy, onCancel }) {
+  const service = type === "Service",
+    set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  return (
+    <form onSubmit={submit}>
+      <div className="form-grid">
+        {service ? (
+          <div className="field full">
+            <label>Service detail</label>
+            <textarea
+              className="textarea"
+              rows="4"
+              value={form.serviceDetail}
+              onChange={(e) => set("serviceDetail", e.target.value)}
+              required
+            />
+          </div>
+        ) : (
+          <>
+            <div className="field">
+              <label>Product name</label>
+              <input
+                className="input"
+                value={form.productName}
+                onChange={(e) => set("productName", e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Serial number</label>
+              <input
+                className="input"
+                value={form.serialNo}
+                onChange={(e) => set("serialNo", e.target.value)}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Quantity</label>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                className="input"
+                value={form.qty}
+                onChange={(e) =>
+                  setForm((f) => {
+                    const qty =
+                      Number(e.target.value) > 0 ? Number(e.target.value) : 1;
+                    const rate = Number(f.rate) || 0;
+                    const amount =
+                      qty && rate
+                        ? String(Math.round(qty * rate * 100) / 100)
+                        : f.amount;
+                    return { ...f, qty: e.target.value, amount };
+                  })
+                }
+              />
+            </div>
+            <div className="field">
+              <label>Rate</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input"
+                value={form.rate}
+                onChange={(e) =>
+                  setForm((f) => {
+                    const qty = Number(f.qty) > 0 ? Number(f.qty) : 1;
+                    const rate = Number(e.target.value) || 0;
+                    const amount = rate
+                      ? String(Math.round(qty * rate * 100) / 100)
+                      : f.amount;
+                    return { ...f, rate: e.target.value, amount };
+                  })
+                }
+              />
+            </div>
+          </>
+        )}
+        <div className="field">
+          <label>Date</label>
+          <input
+            type="date"
+            className="input"
+            value={form.date}
+            onChange={(e) => set("date", e.target.value)}
+            required
+          />
+        </div>
+        <div className="field">
+          <label>Total amount</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="input"
+            value={form.amount}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (service) {
+                set("amount", v);
+                return;
+              }
+              const qty = Number(form.qty) > 0 ? Number(form.qty) : 1;
+              const rate =
+                Number(v) > 0 && qty
+                  ? String(Math.round((Number(v) / qty) * 100) / 100)
+                  : "";
+              setForm((f) => ({ ...f, amount: v, rate }));
+            }}
+            required
+          />
+        </div>
+        <div className="field">
+          <label>Initial payment</label>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            max={Number(form.amount) || undefined}
+            className="input"
+            value={form.initialPayment}
+            onChange={(e) => set("initialPayment", e.target.value)}
+            placeholder="0 for unpaid"
+          />
+        </div>
+        <div className="field">
+          <label>Payment date</label>
+          <input
+            type="date"
+            className="input"
+            value={form.initialPaymentDate}
+            onChange={(e) => set("initialPaymentDate", e.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label>Payment remarks</label>
+          <input
+            className="input"
+            value={form.initialPaymentRemarks}
+            onChange={(e) => set("initialPaymentRemarks", e.target.value)}
+            placeholder="Optional"
+          />
+        </div>
+        <div className="field full">
+          <label>Remarks</label>
+          <textarea
+            className="textarea"
+            rows="3"
+            value={form.remarks}
+            onChange={(e) => set("remarks", e.target.value)}
+          />
+        </div>
+      </div>
+      <div className="form-actions">
+        <button type="button" className="btn btn-secondary" onClick={onCancel}>
+          Cancel
+        </button>
+        <button className="btn btn-primary" disabled={busy}>
+          {busy ? "Saving…" : `Save ${type}`}
+        </button>
+      </div>
+    </form>
+  );
+}

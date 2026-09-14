@@ -2,6 +2,7 @@ import logo from "@/assets/fusion logo.png";
 import { useGetMeQuery, useLogoutMutation } from "@/features/auth/authApi";
 import {
   Bell,
+  Boxes,
   ChevronRight,
   Fuel,
   LayoutDashboard,
@@ -41,9 +42,9 @@ export default function Layout() {
       <aside className={`sidebar ${open ? "open" : ""}`}>
         <div className="brand">
           <img src={logo} />
-          <div>
+          <div className="text-white">
             <b>FUSION</b>
-            <span>Enterprise</span>
+            <span>Enterprises</span>
           </div>
           <button
             className="icon-btn mobile-only"
@@ -78,7 +79,7 @@ export default function Layout() {
               {(data?.user?.username || "A")[0].toUpperCase()}
             </div>
             <div>
-              <b>{data?.user?.username || "Admin"}</b>
+              <b className=" uppercase">{data?.user?.username || "Admin"}</b>
               <span>{data?.user?.email || "Administrator"}</span>
             </div>
           </div>

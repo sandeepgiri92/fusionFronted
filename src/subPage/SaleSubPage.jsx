@@ -91,8 +91,9 @@ const SaleSubPage = ({ partyData, module }) => {
             )}
           </div>
 
-          {entries.length !== 0 && <DataNavigationBtns pagination={pagination} />}
-          
+          {entries.length !== 0 && (
+            <DataNavigationBtns pagination={pagination} />
+          )}
         </div>
       </div>
 
